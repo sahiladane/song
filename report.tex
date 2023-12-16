@@ -1,0 +1,115 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath, amsthm, amssymb, bm, float, hyperref}
+\usepackage[shortlabels]{enumitem}
+\usepackage{import}
+\usepackage{makecell}
+
+
+\title{Data task}
+\usepackage[a4paper, total={6.25in, 9.6in}]{geometry}
+\author{Sahil Adane}
+\date{}
+
+\begin{document}
+	
+	\allowdisplaybreaks
+	\maketitle
+	
+	\subsection*{Econometric concerns} 
+	
+	\begin{itemize}
+		
+		\item 
+		
+		Am I worried about incomplete compliance? In other words, is it possible for a respondent to see either of the facebook ads if I have not assigned them either of the treatments? 
+		
+		I will assume that the facebook targeting algorithm can be user-profile-specific i.e. I can choose such that only selected user-profiles will see the ad. 
+		
+		\item 
+		
+		Am I worried about selective data collection in terms of endline survey completion? 
+		
+		Define a variable called 'missing status'. Missing status is 1 if the person filled the baseline, but not the endline survey. Missing status is 0 if the person filled both the surveys.
+		
+		It is possible that the potential outcomes are NOT independent of missing status. For whatever reason, expectation of treated and untreated outcomes could be different based on missing status. For example, people who have a higher and renewed sense of social and individual responsibility  during the endline survey are possibly more likely to take the vaccine and fill the survey. In such a case, the groups of people by missing status are not balanced, and potential outcomes (likelihood of getting a vaccine with and without treatment) is not independent of missing status, and thus missing people cannot be dropped without worrying about potential bias.
+		
+		For example, I used the first block of code to assign `missing' status in the endline survey. However, if I had used the second block of code to assign status, the groups by missing status would possibly not be balanced.
+		
+		\begin{verbatim}
+			# missing status assigned randomly
+			missing_ids <- sample(1:5000, 500, replace = FALSE)
+			data$missing <- ifelse(data$id %in% missing_ids, 1, 0)
+			
+			
+			# missing status assigned based on low endline outcome
+			missing_ids <- sample(data$id[data$vacc_e == 1], 500, replace = FALSE)
+			data$missing <- ifelse(data$id %in% missing_ids, 1, 0)
+		\end{verbatim}
+		
+		\item 
+		
+		What is the identification assumption?
+		
+		Let \( t_0, t_1\) stand for baseline and endline respectively. \(Y_{i0t_0}\) stands for control outcome at baseline for individual \( i \). \(Y_{i1t_1}\) stands for treatment 1 outcome at endline for individual \( i \) and similarly for others.
+		
+		Randomization ensures that \( Y_{i0t_0}, Y_{i0t_1}, Y_{i1t_0}, Y_{i1t_1}, Y_{i2t_0}, Y_{i2t_1} \perp D_1, D_2 \ \forall i \)  \\
+		That is \( E[Y_{i0t_0}] = E[Y_{i0t_0}| D_1 = 1] = E[Y_{i0t_0} | D_1 = 0 ]   \)
+		
+		Since the dataset has a time component to it - baseline and endline, this is technically a difference-in-differences regression. 
+		\begin{align*}
+			Y_{it} &= Y_{i0t} + D_1(Y_{i1t}- Y_{i0t})+ D_2(Y_{i2t}- Y_{i0t}) \ \forall t \in \{ t_0, t_1 \}\\
+			Y_{it} &= \alpha_b + \alpha_e I_{t_1} + \beta_1 D_1 + \beta_2 D_2 + \gamma_1 (D_1*I_{t_1}) + \gamma_2 (D_2*I_{t_1}) + \epsilon_{it}  
+		\end{align*}
+		
+		\( I_{t_1}, D_1, D_2 \) are indicator variables for endline, treatment 1 and treatment 2 respectively.
+
+		Here \( \alpha_b \) estimates the mean vaccine likelihood at baseline. \( \alpha_e \) is the average increase in vaccine likelihood from baseline to endline. This captures the time-trend in the control group. \( \beta_1 \) is the mean difference in vaccine likelihood at baseline between treatment group 1 and control group. \( \beta_2 \) is the mean difference in vaccine likelihood at baseline between treatment group 2 and control group.  \( \gamma_1 \) is the average increase in vaccine likelihood at endline for treatment group 1 relative to the control group. This estimates the treatment effect for treatment 1. \( \gamma_2 \) is the average increase in vaccine likelihood at endline for treatment group 2 relative to the control group. This estimates the treatment effect for treatment 2.
+		
+   
+		For the DiD estimate to equal the Average treatment effect on the treated, I need the parallel trend on counter-factual outcomes. 		
+		\begin{align*}
+			E[Y_{i0t_1} - Y_{i0t_0} | D_1 = 1]  &= E[Y_{i0t_1} - Y_{i0t_0} | D_1 = 0]
+		\end{align*} 
+		
+		This is guaranteed the randomization. Then, 
+		\begin{align*}
+			\hat{\gamma_1} &= E[Y_{i1t_1} - Y_{i0t_1} | D_1 = 0] = ATET &\text{by parallel trends on counterfactual outcomes} \\
+			&= E[Y_{i1t_1} - Y_{i0t_1}] = ATE &\text{by the stronger assumption of randomization}
+		\end{align*}		
+		
+		
+		\item 
+		
+		Does the result have external validity? Can we expect this ATET for the entire US population?
+		
+		For this question, we can collect demographic data for a representative sample of the US population, and see if there is balance across the two groups - people in the experiment and a representative sample of the US population. If so, we can expect a similar ATET for the entire US population.
+		
+	\end{itemize}
+	\pagebreak
+
+	\subsection*{Analysis}
+	
+	
+	Since I had assigned `missing status' randomly, the balance test by missing status shows that the two groups - people who completed the endline survey and people who did not complete the endline survey are statistically identical. The age variable does not seem balanced across the two groups. However, I think this is expected because of the multiple comparisons problem - as I test more null hypotheses, the probability of atleast one of the them failing increases. If I test each individual hypotheses more strictly at let's say 0.007 (0.05/7 = 0.007 by the Bonferroni correction), I will get that the groups are balanced. If so, I drop the missing observations without being worried about bias. 
+	
+	\subimport{output}{balance_miss}
+	
+	The next table displays the summary statistics for the three groups. 
+	
+	\subimport{output}{summary}
+	
+	I test for balance across treatment group 1 and the control group. 
+	\subimport{output}{balance_treat1}
+	
+	Additionally, I test for balance across treatment group 2 and the control group. 
+	\subimport{output}{balance_treat2}
+	
+	Treatment and control groups seem balanced except for education level. This is either due to multiple comparisons or based on how the missing status was assigned within the treatment and control groups, there is some imbalance. For example, relatively speaking, due to missing status not many control observations got dropped as compared to treatment 1 and treatment 2 observations.
+	
+	Education is also a categorical variable with levels 1, 2, and 3 and I wonder how balance is affected because of this. On the face of it, a mean-difference of 0.06 at the most (treatment 2 and control) does not seem huge. 
+	
+	\subimport{output}{reg1}
+	
+	As expected based on how the data was generated, Treatment 1 increases vaccine likelihood on average by 0.3 points whereas treatment 2 has no effect. 
+\end{document}
